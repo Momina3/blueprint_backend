@@ -1,8 +1,9 @@
-from fastapi import FastAPI, UploadFile, File, Request
+from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-import shutil
+import requests
 import uuid
 import os
 
@@ -28,7 +29,14 @@ OUTPUT_FOLDER = "outputs"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-#https://7896e90613zyun-8000.proxy.runpod.net
+
+# ---------------------------------------------------
+# REQUEST MODEL
+# ---------------------------------------------------
+class BlueprintRequest(BaseModel):
+    image_url: str
+
+
 # ---------------------------------------------------
 # HOME ROUTE
 # ---------------------------------------------------
@@ -41,55 +49,97 @@ def home():
 # GENERATE MODEL
 # ---------------------------------------------------
 @app.post("/generate")
-async def generate(request: Request, file: UploadFile = File(...)):
+async def generate(request: Request, data: BlueprintRequest):
 
     try:
         uid = str(uuid.uuid4())
 
-        ext = os.path.splitext(file.filename)[1].lower()
+        image_url = data.image_url
 
-        # Validate file type
-        if ext not in [".png", ".jpg", ".jpeg", ".webp"]:
-            return JSONResponse(
-                status_code=400,
-                content={"error": "Only PNG / JPG / JPEG / WEBP allowed"},
-            )
-
-        input_path = f"{UPLOAD_FOLDER}/{uid}{ext}"
+        input_path = f"{UPLOAD_FOLDER}/{uid}.png"
         output_path = f"{OUTPUT_FOLDER}/{uid}.glb"
 
-        # Save uploaded file
-        with open(input_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+        # =====================================================
+        # DOWNLOAD IMAGE FROM FIREBASE URL
+        # =====================================================
 
-        # Validate blueprint
+        print("\n🔥 DOWNLOADING IMAGE:")
+        print(image_url)
+
+        response = requests.get(image_url)
+
+        if response.status_code != 200:
+            return JSONResponse(
+                status_code=400,
+                content={
+                    "error": "Failed to download blueprint image"
+                },
+            )
+
+        with open(input_path, "wb") as f:
+            f.write(response.content)
+
+        print("\n🔥 IMAGE DOWNLOADED SUCCESSFULLY")
+
+        # =====================================================
+        # VALIDATE BLUEPRINT
+        # =====================================================
+
         valid, msg = validate_blueprint(input_path)
 
         if not valid:
-            os.remove(input_path)
-            return JSONResponse(status_code=400, content={"error": msg})
 
-        # Run conversion engine
-        tool = FloorPlanConverter()
-        result_path = tool.run(input_path, output_path)
+            if os.path.exists(input_path):
+                os.remove(input_path)
 
-        # Check output
-        if not os.path.exists(result_path):
             return JSONResponse(
-                status_code=500,
-                content={"error": "GLB generation failed"}
+                status_code=400,
+                content={"error": msg},
             )
 
-        # Remove input file after processing
-        os.remove(input_path)
+        # =====================================================
+        # RUN CONVERSION ENGINE
+        # =====================================================
 
-        # Generate dynamic base URL (works in Docker & cloud)
+        print("\n🔥 STARTING CONVERSION ENGINE")
+
+        tool = FloorPlanConverter()
+
+        result_path = tool.run(input_path, output_path)
+
+        # =====================================================
+        # CHECK OUTPUT
+        # =====================================================
+
+        if not os.path.exists(result_path):
+
+            if os.path.exists(input_path):
+                os.remove(input_path)
+
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "error": "GLB generation failed"
+                }
+            )
+
+        # =====================================================
+        # CLEANUP INPUT IMAGE
+        # =====================================================
+
+        if os.path.exists(input_path):
+            os.remove(input_path)
+
+        # =====================================================
+        # GENERATE MODEL URL
+        # =====================================================
+
         PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL")
 
         if PUBLIC_BASE_URL:
-           base_url = PUBLIC_BASE_URL.rstrip("/")
+            base_url = PUBLIC_BASE_URL.rstrip("/")
         else:
-           base_url = str(request.base_url).rstrip("/")
+            base_url = str(request.base_url).rstrip("/")
 
         model_url = f"/files/{uid}.glb"
         full_url = f"{base_url}{model_url}"
@@ -97,13 +147,18 @@ async def generate(request: Request, file: UploadFile = File(...)):
         print("\n🔥 MODEL GENERATED:")
         print(full_url)
 
+        # =====================================================
+        # SUCCESS RESPONSE
+        # =====================================================
+
         return {
             "success": True,
-            "model_url": model_url,   # for frontend
-            "full_url": full_url      # optional (useful for testing)
+            "model_url": model_url,
+            "full_url": full_url
         }
 
     except Exception as e:
+
         import traceback
 
         print("\n❌ ERROR TRACEBACK:\n")
