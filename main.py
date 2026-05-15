@@ -1,7 +1,10 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+import firebase_admin
+from firebase_admin import credentials, storage
 
 import requests
 import uuid
@@ -10,11 +13,26 @@ import os
 from engine import FloorPlanConverter
 from validator import validate_blueprint
 
+# =====================================================
+# FIREBASE ADMIN SETUP
+# =====================================================
+
+cred = credentials.Certificate("firebase-adminsdk.json")
+
+firebase_admin.initialize_app(cred, {
+    'storageBucket': 'sitevision-d982f.firebasestorage.app'
+})
+
+# =====================================================
+# FASTAPI
+# =====================================================
+
 app = FastAPI(title="Blueprint to 3D API")
 
-# ---------------------------------------------------
-# CORS (required for Flutter / mobile / web)
-# ---------------------------------------------------
+# =====================================================
+# CORS
+# =====================================================
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,35 +41,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# =====================================================
+# FOLDERS
+# =====================================================
+
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "outputs"
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
-
-# ---------------------------------------------------
+# =====================================================
 # REQUEST MODEL
-# ---------------------------------------------------
+# =====================================================
+
 class BlueprintRequest(BaseModel):
     image_url: str
 
-
-# ---------------------------------------------------
+# =====================================================
 # HOME ROUTE
-# ---------------------------------------------------
+# =====================================================
+
 @app.get("/")
 def home():
     return {"status": "API Running"}
 
-
-# ---------------------------------------------------
+# =====================================================
 # GENERATE MODEL
-# ---------------------------------------------------
+# =====================================================
+
 @app.post("/generate")
 async def generate(request: Request, data: BlueprintRequest):
 
     try:
+
         uid = str(uuid.uuid4())
 
         image_url = data.image_url
@@ -59,9 +82,9 @@ async def generate(request: Request, data: BlueprintRequest):
         input_path = f"{UPLOAD_FOLDER}/{uid}.png"
         output_path = f"{OUTPUT_FOLDER}/{uid}.glb"
 
-        # =====================================================
-        # DOWNLOAD IMAGE FROM FIREBASE URL
-        # =====================================================
+        # =================================================
+        # DOWNLOAD IMAGE FROM FIREBASE
+        # =================================================
 
         print("\n🔥 DOWNLOADING IMAGE:")
         print(image_url)
@@ -81,9 +104,9 @@ async def generate(request: Request, data: BlueprintRequest):
 
         print("\n🔥 IMAGE DOWNLOADED SUCCESSFULLY")
 
-        # =====================================================
+        # =================================================
         # VALIDATE BLUEPRINT
-        # =====================================================
+        # =================================================
 
         valid, msg = validate_blueprint(input_path)
 
@@ -97,9 +120,9 @@ async def generate(request: Request, data: BlueprintRequest):
                 content={"error": msg},
             )
 
-        # =====================================================
+        # =================================================
         # RUN CONVERSION ENGINE
-        # =====================================================
+        # =================================================
 
         print("\n🔥 STARTING CONVERSION ENGINE")
 
@@ -107,9 +130,9 @@ async def generate(request: Request, data: BlueprintRequest):
 
         result_path = tool.run(input_path, output_path)
 
-        # =====================================================
+        # =================================================
         # CHECK OUTPUT
-        # =====================================================
+        # =================================================
 
         if not os.path.exists(result_path):
 
@@ -123,38 +146,46 @@ async def generate(request: Request, data: BlueprintRequest):
                 }
             )
 
-        # =====================================================
+        # =================================================
         # CLEANUP INPUT IMAGE
-        # =====================================================
+        # =================================================
 
         if os.path.exists(input_path):
             os.remove(input_path)
 
-        # =====================================================
-        # GENERATE MODEL URL
-        # =====================================================
+        # =================================================
+        # UPLOAD GLB TO FIREBASE STORAGE
+        # =================================================
 
-        PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL")
+        print("\n🔥 UPLOADING GLB TO FIREBASE")
 
-        if PUBLIC_BASE_URL:
-            base_url = PUBLIC_BASE_URL.rstrip("/")
-        else:
-            base_url = str(request.base_url).rstrip("/")
+        bucket = storage.bucket()
 
-        model_url = f"/files/{uid}.glb"
-        full_url = f"{base_url}{model_url}"
+        blob = bucket.blob(f"models/{uid}.glb")
 
-        print("\n🔥 MODEL GENERATED:")
-        print(full_url)
+        blob.upload_from_filename(output_path)
 
-        # =====================================================
+        blob.make_public()
+
+        firebase_model_url = blob.public_url
+
+        print("\n🔥 FIREBASE MODEL URL:")
+        print(firebase_model_url)
+
+        # =================================================
+        # OPTIONAL CLEANUP OUTPUT FILE
+        # =================================================
+
+        if os.path.exists(output_path):
+            os.remove(output_path)
+
+        # =================================================
         # SUCCESS RESPONSE
-        # =====================================================
+        # =================================================
 
         return {
             "success": True,
-            "model_url": model_url,
-            "full_url": full_url
+            "model_url": firebase_model_url
         }
 
     except Exception as e:
@@ -171,24 +202,3 @@ async def generate(request: Request, data: BlueprintRequest):
                 "trace": traceback.format_exc()
             },
         )
-
-
-# ---------------------------------------------------
-# DOWNLOAD MODEL
-# ---------------------------------------------------
-@app.get("/files/{name}")
-def get_file(name: str):
-
-    path = os.path.join(OUTPUT_FOLDER, name)
-
-    if not os.path.exists(path):
-        return JSONResponse(
-            status_code=404,
-            content={"error": "File not found"},
-        )
-
-    return FileResponse(
-        path,
-        media_type="model/gltf-binary",
-        filename=name,
-    )

@@ -8,3 +8,4 @@ trimesh
 easyocr
 scikit-learn
 requests
+firebase-admin
