@@ -14,19 +14,20 @@ import traceback
 from engine import FloorPlanConverter
 from validator import validate_blueprint
 
-# =====================================================
-# FIREBASE SETUP
-# =====================================================
+# =========================
+# FIREBASE INIT
+# =========================
 
 cred = credentials.Certificate("firebase-adminsdk.json")
 
-firebase_admin.initialize_app(cred, {
-    'storageBucket': 'sitevision-d982f.firebasestorage.app'
-})
+if not firebase_admin._apps:
+    firebase_admin.initialize_app(cred, {
+        'storageBucket': 'sitevision-d982f.firebasestorage.app'
+    })
 
-# =====================================================
+# =========================
 # APP
-# =====================================================
+# =========================
 
 app = FastAPI(title="Blueprint to 3D API")
 
@@ -49,51 +50,51 @@ class BlueprintRequest(BaseModel):
     image_url: str
 
 
+# =========================
+# HEALTH CHECK
+# =========================
+
 @app.get("/")
 def home():
     return {"status": "API Running"}
 
 
+# =========================
+# MAIN PIPELINE
+# =========================
+
 @app.post("/generate")
-async def generate(request: Request, data: BlueprintRequest):
+async def generate(data: BlueprintRequest):
 
     uid = str(uuid.uuid4())
-
-    image_url = data.image_url
 
     input_path = f"{UPLOAD_FOLDER}/{uid}.png"
     output_path = f"{OUTPUT_FOLDER}/{uid}.glb"
 
     try:
-        # ==========================
+        # =========================
         # DOWNLOAD IMAGE
-        # ==========================
-        print("\n🔥 DOWNLOADING IMAGE:\n", image_url)
-
-        response = requests.get(image_url, timeout=30)
+        # =========================
+        print("\n🔥 Downloading blueprint...")
+        response = requests.get(data.image_url, timeout=30)
 
         if response.status_code != 200:
             return JSONResponse(
                 status_code=400,
-                content={"error": "Failed to download image"}
+                content={"error": "Failed to download blueprint"}
             )
 
         with open(input_path, "wb") as f:
             f.write(response.content)
 
-        print("🔥 IMAGE DOWNLOADED")
-
-        # ==========================
-        # VALIDATION (FIXED HERE)
-        # ==========================
+        # =========================
+        # VALIDATION
+        # =========================
         valid, msg, confidence = validate_blueprint(input_path)
 
-        print(f"VALIDATION => {valid}, {msg}, {confidence}")
+        print(f"Validation: {valid}, confidence={confidence}")
 
-        if not valid:
-            if os.path.exists(input_path):
-                os.remove(input_path)
-
+        if not valid and confidence < 0.35:
             return JSONResponse(
                 status_code=400,
                 content={
@@ -102,28 +103,33 @@ async def generate(request: Request, data: BlueprintRequest):
                 }
             )
 
-        # ==========================
-        # ENGINE
-        # ==========================
-        print("🔥 STARTING CONVERSION")
+        if not valid:
+            print("⚠️ Weak blueprint, continuing anyway...")
+
+        # =========================
+        # CONVERSION ENGINE
+        # =========================
+        print("\n🔥 Running conversion engine...")
 
         tool = FloorPlanConverter()
         result_path = tool.run(input_path, output_path)
 
-        if not os.path.exists(result_path):
+        if not result_path or not os.path.exists(result_path):
             return JSONResponse(
                 status_code=500,
                 content={"error": "GLB generation failed"}
             )
 
-        # cleanup input
+        # =========================
+        # CLEAN INPUT
+        # =========================
         if os.path.exists(input_path):
             os.remove(input_path)
 
-        # ==========================
+        # =========================
         # UPLOAD TO FIREBASE
-        # ==========================
-        print("🔥 UPLOADING MODEL")
+        # =========================
+        print("\n🔥 Uploading to Firebase...")
 
         bucket = storage.bucket()
         blob = bucket.blob(f"models/{uid}.glb")
@@ -133,7 +139,9 @@ async def generate(request: Request, data: BlueprintRequest):
 
         model_url = blob.public_url
 
-        # cleanup output
+        # =========================
+        # CLEAN OUTPUT
+        # =========================
         if os.path.exists(output_path):
             os.remove(output_path)
 
@@ -144,7 +152,7 @@ async def generate(request: Request, data: BlueprintRequest):
         }
 
     except Exception as e:
-        print("\n❌ ERROR:\n")
+        print("\n❌ ERROR:")
         traceback.print_exc()
 
         return JSONResponse(
