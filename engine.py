@@ -33,7 +33,7 @@ class FloorPlanConverter:
                print("Fallback to CPU successful.")
             except Exception as e_cpu:
                print(f"CPU fallback failed: {e_cpu}")
-        self.easyocr_reader = None
+
         self.image_path = None
         self.original_image_pil = None 
         self.displayed_image_pil = None 
@@ -490,7 +490,7 @@ class FloorPlanConverter:
 
 
         segment_mesh = pv.PolyData(vertices, faces)
-        plotter.add_mesh(segment_mesh, color=wall_color, smooth_shading=False)
+        plotter.add_mesh(segment_mesh, color=wall_color, smooth_shading=False,name="Layer_Walls")
 
     def create_wall_with_openings(self, plotter, wall_data_px, overall_height_ft, thickness_ft, scale_factor):
         start_px_orig = np.array(wall_data_px["start"])
@@ -583,7 +583,7 @@ class FloorPlanConverter:
                              z_length=height_ft)
         door_panel.rotate_z(math.degrees(angle_rad_wall), inplace=True)
         door_panel.translate(list(center_pos_2d_ft) + [0], inplace=True) # center_pos_2d_ft is already a tuple/list
-        plotter.add_mesh(door_panel, color=panel_color, smooth_shading=False)
+        plotter.add_mesh(door_panel, color=panel_color, smooth_shading=False,name="Layer_Doors")
 
 
     def create_window_model(self, plotter, center_pos_2d_ft, width_ft, height_ft, sill_ft, wall_thickness_ft, angle_rad_wall):
@@ -596,7 +596,7 @@ class FloorPlanConverter:
                              z_length=height_ft)
         glass_pane.rotate_z(math.degrees(angle_rad_wall), inplace=True)
         glass_pane.translate(list(center_pos_2d_ft) + [0], inplace=True)
-        plotter.add_mesh(glass_pane, color=glass_color, opacity=0.6, smooth_shading=False)
+        plotter.add_mesh(glass_pane, color=glass_color, opacity=0.6, smooth_shading=False,name="Layer_Windows")
         
     def create_curved_wall(self, plotter, points_2d_ft, height_ft, thickness_ft):
         if len(points_2d_ft) < 2: return
@@ -694,7 +694,12 @@ class FloorPlanConverter:
         try:
             curved_wall_mesh = pv.PolyData(vertices_np, faces=np.hstack(faces_list))
             if curved_wall_mesh.n_points > 0 and curved_wall_mesh.n_cells > 0:
-                 plotter.add_mesh(curved_wall_mesh, color=self.materials["wall"], smooth_shading=False)
+                 plotter.add_mesh(
+                  curved_wall_mesh,
+                  color=self.materials["wall"],
+                  smooth_shading=False,
+                   name="Layer_Walls"
+                 )
             else:
                 print("Warning: Generated curved wall mesh is empty or invalid.")
         except Exception as e:
@@ -720,23 +725,26 @@ class FloorPlanConverter:
                 bed_bounds = [bed_x_pos - bed_w/2, bed_x_pos + bed_w/2,
                               bed_y_pos - bed_l/2, bed_y_pos + bed_l/2,
                               0, bed_h]
-                plotter.add_mesh(pv.Box(bounds=bed_bounds), color=furniture_color["bed"])
+                plotter.add_mesh(pv.Box(bounds=bed_bounds), color=furniture_color["bed"],name="Layer_Furniture")
 
         elif room_type == "Kitchen":
             counter_h, counter_d = 2.9, 2.0 
             if length > counter_d + 0.5 : 
                 plotter.add_mesh(pv.Box(bounds=[x_min, x_max, y_max - counter_d, y_max, 0, counter_h]), 
-                                 color=furniture_color["counter"]) 
+                                 color=furniture_color["counter"],name="Layer_Furniture"
+) 
             if width > counter_d + 0.5 :
                 plotter.add_mesh(pv.Box(bounds=[x_max - counter_d, x_max, y_min, y_max - (counter_d if length > counter_d + 0.5 else 0) , 0, counter_h]), 
-                                 color=furniture_color["counter"]) 
+                                 color=furniture_color["counter"],name="Layer_Furniture"
+) 
             if width > 7 and length > 7: 
                 island_w, island_l = min(width*0.3, 4), min(length*0.25, 3)
                 if island_w > 1.5 and island_l > 1.5:
                     island_bounds = [center_x - island_w/2, center_x + island_w/2,
                                      center_y - island_l/2, center_y + island_l/2,
                                      0, counter_h]
-                    plotter.add_mesh(pv.Box(bounds=island_bounds), color=furniture_color["island"])
+                    plotter.add_mesh(pv.Box(bounds=island_bounds), color=furniture_color["island"],name="Layer_Furniture"
+)
 
         elif room_type == "Living Room":
             sofa_max_w, sofa_max_d, sofa_h = min(width * 0.7, 7), min(length*0.35, 3.0), 2.5             
@@ -754,7 +762,8 @@ class FloorPlanConverter:
                 sofa_bounds = [sofa_x_pos - sofa_actual_w/2, sofa_x_pos + sofa_actual_w/2,
                                sofa_y_pos - sofa_actual_d/2, sofa_y_pos + sofa_actual_d/2,
                                0, sofa_h]
-                plotter.add_mesh(pv.Box(bounds=sofa_bounds), color=furniture_color["sofa"])
+                plotter.add_mesh(pv.Box(bounds=sofa_bounds), color=furniture_color["sofa"],name="Layer_Furniture"
+)
     
     def generate_3d_model(self):
         if not self.room_dimensions and not self.walls and not self.curved_walls:
@@ -796,7 +805,7 @@ class FloorPlanConverter:
         
         if not all_points_ft: 
              plotter.add_mesh(pv.Plane(center=(0,0,-0.1), direction=(0,0,1), i_size=50, j_size=50),
-                              color=self.materials["floor"])
+                              color=self.materials["floor"], name="Layer_Floor")
         else:
             all_points_ft_np = np.array(all_points_ft)
             min_coord_x = np.min(all_points_ft_np[:,0])
@@ -808,7 +817,7 @@ class FloorPlanConverter:
             floor_bounds = [min_coord_x - floor_padding, max_coord_x + floor_padding,
                             min_coord_y - floor_padding, max_coord_y + floor_padding,
                             -0.1, 0] 
-            plotter.add_mesh(pv.Box(bounds=floor_bounds), color=self.materials["floor"])
+            plotter.add_mesh(pv.Box(bounds=floor_bounds), color=self.materials["floor"],name="Layer_Floor")
 
         for room_name, data in self.room_dimensions.items():
             if "position" in data and "width" in data and "length" in data:
