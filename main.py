@@ -93,23 +93,26 @@ async def generate(data: BlueprintRequest):
         valid, msg, confidence = validate_blueprint(input_path)
 
         print(f"Validation: {valid}, confidence={confidence}")
+        print(f"Message: {msg}")
 
+        # Reject clearly invalid images
         if not valid and confidence < 0.35:
-            return JSONResponse(
+
+            if os.path.exists(input_path):
+               os.remove(input_path)
+
+               return JSONResponse(
                 status_code=400,
-                content={
-                    "error": msg,
-                    "confidence": confidence
-                }
-            )
+                  content={
+                  "success": False,
+                  "error": msg,
+                  "confidence": confidence
+                   }
+                 )
 
+# Allow weak blueprints but tell user in response/logs
         if not valid:
-            print("⚠️ Weak blueprint, continuing anyway...")
-
-        # =========================
-        # CONVERSION ENGINE
-        # =========================
-        print("\n🔥 Running conversion engine...")
+            print(f"⚠️ Weak blueprint accepted: {msg}")
 
         tool = FloorPlanConverter()
         result_path = tool.run(input_path, output_path)
