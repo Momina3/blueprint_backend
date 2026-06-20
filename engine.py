@@ -850,12 +850,9 @@ class FloorPlanConverter:
         output_gltf = "output.gltf"
         output_glb = "output.glb"
 
-        plotter.render()   # VERY IMPORTANT
+        plotter.render()
 
-        plotter.export_gltf(output_gltf)
-
-        mesh = trimesh.load(output_gltf)
-        mesh.export(output_glb)
+        plotter.export_gltf(output_glb)
 
         plotter.close()
 
