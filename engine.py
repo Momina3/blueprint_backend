@@ -22,17 +22,18 @@ class FloorPlanConverter:
         USE_GPU = os.getenv("USE_GPU", "true").lower() == "true"
 
         try:
-           self.easyocr_reader = easyocr.Reader(['en'], gpu=USE_GPU)
-           print(f"EasyOCR loaded with GPU={USE_GPU}")
-        except Exception as e:
-           print(f"EasyOCR failed: {e}")
-        try:
-           self.easyocr_reader = easyocr.Reader(['en'], gpu=False)
-           print("Fallback to CPU successful.")
-        except Exception as e_cpu:
-           print(f"CPU fallback failed: {e_cpu}")
-           self.easyocr_reader = None
+            self.easyocr_reader = easyocr.Reader(['en'], gpu=USE_GPU)
+            print(f"EasyOCR loaded with GPU={USE_GPU}")
 
+        except Exception as e:
+            print(f"EasyOCR GPU failed: {e}")
+
+            try:
+               self.easyocr_reader = easyocr.Reader(['en'], gpu=False)
+               print("Fallback to CPU successful.")
+            except Exception as e_cpu:
+               print(f"CPU fallback failed: {e_cpu}")
+        self.easyocr_reader = None
         self.image_path = None
         self.original_image_pil = None 
         self.displayed_image_pil = None 
@@ -72,12 +73,6 @@ class FloorPlanConverter:
         self.start_x_canvas = None
         self.start_y_canvas = None
         
-
-        
-
-
-
-
     def determine_room_type(self, room_name):
         room_name_lower = room_name.lower()
         if "bed" in room_name_lower: return "Bedroom"
@@ -771,10 +766,10 @@ class FloorPlanConverter:
             current_font_size = self.label_font_size
             show_labels_flag = self.show_labels_in_3d
         except ValueError:
-            print("Input Error", "Room height, wall thickness, and font size must be valid numbers.")
+           #print("Input Error", "Room height, wall thickness, and font size must be valid numbers.")
             return
         if current_height_ft <=0 or current_wall_thickness_ft <=0:
-            print("Input Error", "Height and thickness must be positive.")
+           #print("Input Error", "Height and thickness must be positive.")
             return
 
         plotter = pv.Plotter(window_size=[1000,800]) 
@@ -882,10 +877,6 @@ class FloorPlanConverter:
         print("✅ Saved:", output_path)
 
         return output_path
-
-   
-
-    
 
 if __name__ == "__main__":
     print("Use main.py FastAPI server to run this project.")
