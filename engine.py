@@ -701,304 +701,301 @@ class FloorPlanConverter:
         except Exception as e:
             print(f"Error creating PolyData for curved wall: {e} with {len(vertices_np)} vertices and faces_list: {len(faces_list)} cells.")
 
-def create_furniture(self, plotter, room_type, room_bounds_ft, room_height):
-    x_min, x_max, y_min, y_max = room_bounds_ft
-    width = x_max - x_min
-    length = y_max - y_min
-    center_x, center_y = x_min + width / 2, y_min + length / 2
 
-    if width <= 1e-3 or length <= 1e-3:
-        return
+    def create_furniture(self, plotter, room_type, room_bounds_ft, room_height):
+        x_min, x_max, y_min, y_max = room_bounds_ft
+        width = x_max - x_min
+        length = y_max - y_min
+        center_x, center_y = x_min + width / 2, y_min + length / 2
 
-    if room_type == "Bedroom":
-        bed_w, bed_l, bed_h = min(width * 0.6, 6.0), min(length * 0.7, 7.0), 2.0
+        if width <= 1e-3 or length <= 1e-3:
+            return
 
-        if bed_w > 1.0 and bed_l > 1.5:
-            if width < length:
-                bed_x_pos, bed_y_pos = center_x, y_min + bed_l / 2 + 0.5
-            else:
-                bed_w, bed_l = bed_l, bed_w
-                bed_x_pos, bed_y_pos = x_min + bed_w / 2 + 0.5, center_y
+        if room_type == "Bedroom":
+            bed_w, bed_l, bed_h = min(width * 0.6, 6.0), min(length * 0.7, 7.0), 2.0
 
-            bed_bounds = [
-                bed_x_pos - bed_w / 2,
-                bed_x_pos + bed_w / 2,
-                bed_y_pos - bed_l / 2,
-                bed_y_pos + bed_l / 2,
-                0,
-                bed_h
-            ]
+            if bed_w > 1.0 and bed_l > 1.5:
+                if width < length:
+                    bed_x_pos, bed_y_pos = center_x, y_min + bed_l / 2 + 0.5
+                else:
+                    bed_w, bed_l = bed_l, bed_w
+                    bed_x_pos, bed_y_pos = x_min + bed_w / 2 + 0.5, center_y
 
-            bed_mesh = pv.Box(bounds=bed_bounds)
-            self.layer_meshes["Layer_Furniture"].append(bed_mesh)
-
-    elif room_type == "Kitchen":
-        counter_h, counter_d = 2.9, 2.0
-
-        if length > counter_d + 0.5:
-            counter1_bounds = [
-                x_min,
-                x_max,
-                y_max - counter_d,
-                y_max,
-                0,
-                counter_h
-            ]
-
-            counter1_mesh = pv.Box(bounds=counter1_bounds)
-            self.layer_meshes["Layer_Furniture"].append(counter1_mesh)
-
-        if width > counter_d + 0.5:
-            counter2_bounds = [
-                x_max - counter_d,
-                x_max,
-                y_min,
-                y_max - (counter_d if length > counter_d + 0.5 else 0),
-                0,
-                counter_h
-            ]
-
-            counter2_mesh = pv.Box(bounds=counter2_bounds)
-            self.layer_meshes["Layer_Furniture"].append(counter2_mesh)
-
-        if width > 7 and length > 7:
-            island_w, island_l = min(width * 0.3, 4), min(length * 0.25, 3)
-
-            if island_w > 1.5 and island_l > 1.5:
-                island_bounds = [
-                    center_x - island_w / 2,
-                    center_x + island_w / 2,
-                    center_y - island_l / 2,
-                    center_y + island_l / 2,
+                bed_bounds = [
+                    bed_x_pos - bed_w / 2,
+                    bed_x_pos + bed_w / 2,
+                    bed_y_pos - bed_l / 2,
+                    bed_y_pos + bed_l / 2,
                     0,
-                    counter_h
+                    bed_h,
                 ]
 
-                island_mesh = pv.Box(bounds=island_bounds)
-                self.layer_meshes["Layer_Furniture"].append(island_mesh)
+                bed_mesh = pv.Box(bounds=bed_bounds)
+                self.layer_meshes["Layer_Furniture"].append(bed_mesh)
 
-    elif room_type == "Living Room":
-        sofa_max_w, sofa_max_d, sofa_h = min(width * 0.7, 7), min(length * 0.35, 3.0), 2.5
+        elif room_type == "Kitchen":
+            counter_h, counter_d = 2.9, 2.0
 
-        if sofa_max_w > 2.0 and sofa_max_d > 1.5:
-            sofa_actual_w, sofa_actual_d = sofa_max_w, sofa_max_d
-            sofa_x_pos, sofa_y_pos = center_x, y_min + sofa_actual_d / 2 + 0.5
+            if length > counter_d + 0.5:
+                counter1_bounds = [
+                    x_min,
+                    x_max,
+                    y_max - counter_d,
+                    y_max,
+                    0,
+                    counter_h,
+                ]
 
-            if width > length * 1.1:
-                sofa_actual_w = sofa_max_w
-                sofa_actual_d = sofa_max_d
-                sofa_x_pos = center_x
-                sofa_y_pos = y_min + sofa_actual_d / 2 + 0.5
+                counter1_mesh = pv.Box(bounds=counter1_bounds)
+                self.layer_meshes["Layer_Furniture"].append(counter1_mesh)
 
-            elif length > width * 1.1:
-                sofa_actual_w = sofa_max_d
-                sofa_actual_d = sofa_max_w
-                sofa_x_pos = x_min + sofa_actual_d / 2 + 0.5
-                sofa_y_pos = center_y
+            if width > counter_d + 0.5:
+                counter2_bounds = [
+                    x_max - counter_d,
+                    x_max,
+                    y_min,
+                    y_max - (counter_d if length > counter_d + 0.5 else 0),
+                    0,
+                    counter_h,
+                ]
 
-            sofa_bounds = [
-                sofa_x_pos - sofa_actual_w / 2,
-                sofa_x_pos + sofa_actual_w / 2,
-                sofa_y_pos - sofa_actual_d / 2,
-                sofa_y_pos + sofa_actual_d / 2,
+                counter2_mesh = pv.Box(bounds=counter2_bounds)
+                self.layer_meshes["Layer_Furniture"].append(counter2_mesh)
+
+            if width > 7 and length > 7:
+                island_w, island_l = min(width * 0.3, 4), min(length * 0.25, 3)
+
+                if island_w > 1.5 and island_l > 1.5:
+                    island_bounds = [
+                        center_x - island_w / 2,
+                        center_x + island_w / 2,
+                        center_y - island_l / 2,
+                        center_y + island_l / 2,
+                        0,
+                        counter_h,
+                    ]
+
+                    island_mesh = pv.Box(bounds=island_bounds)
+                    self.layer_meshes["Layer_Furniture"].append(island_mesh)
+
+        elif room_type == "Living Room":
+            sofa_max_w, sofa_max_d, sofa_h = min(width * 0.7, 7), min(length * 0.35, 3.0), 2.5
+
+            if sofa_max_w > 2.0 and sofa_max_d > 1.5:
+                sofa_actual_w, sofa_actual_d = sofa_max_w, sofa_max_d
+                sofa_x_pos, sofa_y_pos = center_x, y_min + sofa_actual_d / 2 + 0.5
+
+                if width > length * 1.1:
+                    sofa_actual_w = sofa_max_w
+                    sofa_actual_d = sofa_max_d
+                    sofa_x_pos = center_x
+                    sofa_y_pos = y_min + sofa_actual_d / 2 + 0.5
+
+                elif length > width * 1.1:
+                    sofa_actual_w = sofa_max_d
+                    sofa_actual_d = sofa_max_w
+                    sofa_x_pos = x_min + sofa_actual_d / 2 + 0.5
+                    sofa_y_pos = center_y
+
+                sofa_bounds = [
+                    sofa_x_pos - sofa_actual_w / 2,
+                    sofa_x_pos + sofa_actual_w / 2,
+                    sofa_y_pos - sofa_actual_d / 2,
+                    sofa_y_pos + sofa_actual_d / 2,
+                    0,
+                    sofa_h,
+                ]
+
+                sofa_mesh = pv.Box(bounds=sofa_bounds)
+                self.layer_meshes["Layer_Furniture"].append(sofa_mesh)
+
+    def generate_3d_model(self):
+        if not self.room_dimensions and not self.walls and not self.curved_walls:
+            print("Error", "No data to generate a model. Process an image or add rooms/walls.")
+            return
+
+        self.layer_meshes = {
+            "Layer_Walls": [],
+            "Layer_Floor": [],
+            "Layer_Doors": [],
+            "Layer_Windows": [],
+            "Layer_Furniture": [],
+        }
+
+        try:
+            current_height_ft = self.default_height
+            current_wall_thickness_ft = self.wall_thickness
+            current_font_size = self.label_font_size
+            show_labels_flag = self.show_labels_in_3d
+        except ValueError:
+            return
+
+        if current_height_ft <= 0 or current_wall_thickness_ft <= 0:
+            return
+
+        plotter = pv.Plotter(window_size=[1000, 800])
+        plotter.background_color = "#202020"
+        plotter.enable_shadows()
+
+        all_points_ft = []
+
+        if self.scale_factor > 0:
+            for wall_data in self.walls:
+                s_px = np.array(wall_data["start"])
+                e_px = np.array(wall_data["end"])
+                all_points_ft.append(s_px / self.scale_factor)
+                all_points_ft.append(e_px / self.scale_factor)
+
+            for curve_data in self.curved_walls:
+                for pt_px in curve_data["points"]:
+                    all_points_ft.append(np.array(pt_px) / self.scale_factor)
+
+        if not all_points_ft and self.room_dimensions:
+            for room_name, data in self.room_dimensions.items():
+                if "position" in data and "width" in data and "length" in data:
+                    cx, cy = data["position"]
+                    w, l = data["width"], data["length"]
+                    all_points_ft.append((cx - w / 2, cy - l / 2))
+                    all_points_ft.append((cx + w / 2, cy + l / 2))
+
+        if not all_points_ft:
+            floor_mesh = pv.Plane(
+                center=(0, 0, -0.1),
+                direction=(0, 0, 1),
+                i_size=50,
+                j_size=50,
+            )
+            self.layer_meshes["Layer_Floor"].append(floor_mesh)
+        else:
+            all_points_ft_np = np.array(all_points_ft)
+
+            min_coord_x = np.min(all_points_ft_np[:, 0])
+            max_coord_x = np.max(all_points_ft_np[:, 0])
+            min_coord_y = np.min(all_points_ft_np[:, 1])
+            max_coord_y = np.max(all_points_ft_np[:, 1])
+
+            floor_padding = 5.0
+
+            floor_bounds = [
+                min_coord_x - floor_padding,
+                max_coord_x + floor_padding,
+                min_coord_y - floor_padding,
+                max_coord_y + floor_padding,
+                -0.1,
                 0,
-                sofa_h
             ]
 
-            sofa_mesh = pv.Box(bounds=sofa_bounds)
-            self.layer_meshes["Layer_Furniture"].append(sofa_mesh)
-    
-def generate_3d_model(self):
-    if not self.room_dimensions and not self.walls and not self.curved_walls:
-        print("Error", "No data to generate a model. Process an image or add rooms/walls.")
-        return
+            floor_mesh = pv.Box(bounds=floor_bounds)
+            self.layer_meshes["Layer_Floor"].append(floor_mesh)
 
-    self.layer_meshes = {
-        "Layer_Walls": [],
-        "Layer_Floor": [],
-        "Layer_Doors": [],
-        "Layer_Windows": [],
-        "Layer_Furniture": [],
-    }
-
-    try:
-        current_height_ft = self.default_height
-        current_wall_thickness_ft = self.wall_thickness
-        current_font_size = self.label_font_size
-        show_labels_flag = self.show_labels_in_3d
-    except ValueError:
-        return
-
-    if current_height_ft <= 0 or current_wall_thickness_ft <= 0:
-        return
-
-    plotter = pv.Plotter(window_size=[1000, 800])
-    plotter.background_color = "#202020"
-    plotter.enable_shadows()
-
-    all_points_ft = []
-
-    if self.scale_factor > 0:
-        for wall_data in self.walls:
-            s_px = np.array(wall_data["start"])
-            e_px = np.array(wall_data["end"])
-            all_points_ft.append(s_px / self.scale_factor)
-            all_points_ft.append(e_px / self.scale_factor)
-
-        for curve_data in self.curved_walls:
-            for pt_px in curve_data["points"]:
-                all_points_ft.append(np.array(pt_px) / self.scale_factor)
-
-    if not all_points_ft and self.room_dimensions:
         for room_name, data in self.room_dimensions.items():
             if "position" in data and "width" in data and "length" in data:
-                cx, cy = data["position"]
-                w, l = data["width"], data["length"]
-                all_points_ft.append((cx - w / 2, cy - l / 2))
-                all_points_ft.append((cx + w / 2, cy + l / 2))
+                width_ft = data["width"]
+                length_ft = data["length"]
+                center_x_ft, center_y_ft = data["position"]
 
-    if not all_points_ft:
-        floor_mesh = pv.Plane(
-            center=(0, 0, -0.1),
-            direction=(0, 0, 1),
-            i_size=50,
-            j_size=50
-        )
-        self.layer_meshes["Layer_Floor"].append(floor_mesh)
+                if width_ft <= 0 or length_ft <= 0:
+                    continue
 
-    else:
-        all_points_ft_np = np.array(all_points_ft)
+                if show_labels_flag:
+                    plotter.add_point_labels(
+                        [(center_x_ft, center_y_ft, current_height_ft / 2)],
+                        [room_name],
+                        font_size=current_font_size,
+                        text_color="#FFFFFF",
+                        shape=None,
+                        show_points=False,
+                        always_visible=False,
+                        point_size=10,
+                    )
 
-        min_coord_x = np.min(all_points_ft_np[:, 0])
-        max_coord_x = np.max(all_points_ft_np[:, 0])
-        min_coord_y = np.min(all_points_ft_np[:, 1])
-        max_coord_y = np.max(all_points_ft_np[:, 1])
+                r_min_x = center_x_ft - width_ft / 2.0
+                r_max_x = center_x_ft + width_ft / 2.0
+                r_min_y = center_y_ft - length_ft / 2.0
+                r_max_y = center_y_ft + length_ft / 2.0
 
-        floor_padding = 5.0
+                room_bounds_ft_for_furniture = (
+                    r_min_x,
+                    r_max_x,
+                    r_min_y,
+                    r_max_y,
+                )
 
-        floor_bounds = [
-            min_coord_x - floor_padding,
-            max_coord_x + floor_padding,
-            min_coord_y - floor_padding,
-            max_coord_y + floor_padding,
-            -0.1,
-            0
-        ]
+                if width_ft * length_ft > 10:
+                    self.create_furniture(
+                        plotter,
+                        data.get("type", "Other"),
+                        room_bounds_ft_for_furniture,
+                        current_height_ft,
+                    )
 
-        floor_mesh = pv.Box(bounds=floor_bounds)
-        self.layer_meshes["Layer_Floor"].append(floor_mesh)
+        for wall_data_px in self.walls:
+            self.create_wall_with_openings(
+                plotter,
+                wall_data_px,
+                current_height_ft,
+                current_wall_thickness_ft,
+                self.scale_factor,
+            )
 
-    for room_name, data in self.room_dimensions.items():
-        if "position" in data and "width" in data and "length" in data:
-            width_ft = data["width"]
-            length_ft = data["length"]
-            center_x_ft, center_y_ft = data["position"]
+        for curve_data_px in self.curved_walls:
+            if self.scale_factor > 0:
+                points_ft = [
+                    (p[0] / self.scale_factor, p[1] / self.scale_factor)
+                    for p in curve_data_px["points"]
+                ]
 
-            if width_ft <= 0 or length_ft <= 0:
+                self.create_curved_wall(
+                    plotter,
+                    points_ft,
+                    current_height_ft,
+                    current_wall_thickness_ft,
+                )
+
+        layer_colors = {
+            "Layer_Walls": self.materials["wall"],
+            "Layer_Floor": self.materials["floor"],
+            "Layer_Doors": self.materials["door_panel"],
+            "Layer_Windows": self.materials["window_glass"],
+            "Layer_Furniture": "#808080",
+        }
+
+        for layer_name, meshes in self.layer_meshes.items():
+            if not meshes:
+                print(f"{layer_name}: 0 meshes")
                 continue
 
-            if show_labels_flag:
-                plotter.add_point_labels(
-                    [(center_x_ft, center_y_ft, current_height_ft / 2)],
-                    [room_name],
-                    font_size=current_font_size,
-                    text_color="#FFFFFF",
-                    shape=None,
-                    show_points=False,
-                    always_visible=False,
-                    point_size=10
-                )
+            merged_mesh = meshes[0]
 
-            r_min_x = center_x_ft - width_ft / 2.0
-            r_max_x = center_x_ft + width_ft / 2.0
-            r_min_y = center_y_ft - length_ft / 2.0
-            r_max_y = center_y_ft + length_ft / 2.0
+            for mesh in meshes[1:]:
+                merged_mesh = merged_mesh.merge(mesh)
 
-            room_bounds_ft_for_furniture = (
-                r_min_x,
-                r_max_x,
-                r_min_y,
-                r_max_y
+            print(f"{layer_name}: {len(meshes)} meshes merged")
+
+            plotter.add_mesh(
+                merged_mesh,
+                color=layer_colors[layer_name],
+                name=layer_name,
+                smooth_shading=False,
             )
 
-            if width_ft * length_ft > 10:
-                self.create_furniture(
-                    plotter,
-                    data.get("type", "Other"),
-                    room_bounds_ft_for_furniture,
-                    current_height_ft
-                )
+        output_glb = "output.glb"
 
-    for wall_data_px in self.walls:
-        self.create_wall_with_openings(
-            plotter,
-            wall_data_px,
-            current_height_ft,
-            current_wall_thickness_ft,
-            self.scale_factor
-        )
+        plotter.render()
+        plotter.export_gltf(output_glb)
+        plotter.close()
 
-    for curve_data_px in self.curved_walls:
-        if self.scale_factor > 0:
-            points_ft = [
-                (p[0] / self.scale_factor, p[1] / self.scale_factor)
-                for p in curve_data_px["points"]
-            ]
-
-            self.create_curved_wall(
-                plotter,
-                points_ft,
-                current_height_ft,
-                current_wall_thickness_ft
-            )
-
-    layer_colors = {
-        "Layer_Walls": self.materials["wall"],
-        "Layer_Floor": self.materials["floor"],
-        "Layer_Doors": self.materials["door_panel"],
-        "Layer_Windows": self.materials["window_glass"],
-        "Layer_Furniture": "#808080",
-    }
-
-    for layer_name, meshes in self.layer_meshes.items():
-        if not meshes:
-            print(f"{layer_name}: 0 meshes")
-            continue
-
-        merged_mesh = meshes[0]
-
-        for mesh in meshes[1:]:
-            merged_mesh = merged_mesh.merge(mesh)
-
-        print(f"{layer_name}: {len(meshes)} meshes merged")
-
-        plotter.add_mesh(
-            merged_mesh,
-            color=layer_colors[layer_name],
-            name=layer_name,
-            smooth_shading=False
-        )
-
-    output_glb = "output.glb"
-
-    plotter.render()
-    plotter.export_gltf(output_glb)
-    plotter.close()
-
-    print(f"Model exported: {output_glb}")
-    
+        print(f"Model exported: {output_glb}")
 
     def run(self, image_path, output_path):
         """
         Full pipeline: image → 3D model
         """
-
         print("🔄 Engine started")
 
         self.image_path = image_path
         self.original_image_pil = Image.open(image_path)
 
-        # internal steps
         self.process_current_image()
         self.generate_3d_model()
 
@@ -1010,8 +1007,8 @@ def generate_3d_model(self):
         os.replace(temp_output, output_path)
 
         print("✅ Saved:", output_path)
-
         return output_path
+
 
 if __name__ == "__main__":
     print("Use main.py FastAPI server to run this project.")
