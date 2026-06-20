@@ -979,13 +979,17 @@ class FloorPlanConverter:
                 smooth_shading=False,
             )
 
+        output_gltf = "output.gltf"
         output_glb = "output.glb"
 
         plotter.render()
-        plotter.export_gltf(output_glb)
-        plotter.close()
+        plotter.export_gltf(output_gltf)
 
-        print(f"Model exported: {output_glb}")
+        import trimesh
+        scene = trimesh.load(output_gltf, force="scene")
+        scene.export(output_glb)
+
+        plotter.close()
 
     def run(self, image_path, output_path):
         """
