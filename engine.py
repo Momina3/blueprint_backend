@@ -7,7 +7,7 @@ import math
 import os
 import json
 from PIL import Image
-from PIL.Image import Resampling # For Image.Resampling.LANCZOS
+from PIL.Image import Resampling 
 from sklearn.cluster import DBSCAN
 
 
@@ -128,7 +128,7 @@ class FloorPlanConverter:
             if len(self.walls) > 0 and self.scale_factor > 0:
                 walls_with_openings_added = 0
                 for i, wall_data in enumerate(self.walls):
-                    if walls_with_openings_added >= 3 : break # Limit openings for demo
+                    if walls_with_openings_added >= 3 : break 
                     
                     wall_length_ft = wall_data["length"] / self.scale_factor
                     if wall_length_ft > 5: 
@@ -180,37 +180,24 @@ class FloorPlanConverter:
 
         gray = cv2.cvtColor(image_cv, cv2.COLOR_BGR2GRAY)
         inverted_gray = cv2.bitwise_not(gray) 
-        
-        # TUNABLE: For black lines on white background, try 100-150. 
-        # For gray lines on lighter gray, might need lower.
+    
         binarization_threshold_val = 120 
         _, binarized = cv2.threshold(inverted_gray, binarization_threshold_val, 255, cv2.THRESH_BINARY)
         
-        # cv2.imwrite("debug_binarized_initial.png", binarized) # For debugging
-
-        # Morphological operations to merge double lines and close gaps
-        # Adjust kernel sizes and iterations based on typical wall thickness and gap sizes in your plans
-        kernel_rect_close_thick = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7)) # Make lines thicker and connect
+        kernel_rect_close_thick = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7)) 
         closed_img = cv2.morphologyEx(binarized, cv2.MORPH_CLOSE, kernel_rect_close_thick, iterations=2)
 
-        # Optional: Erode a bit to thin lines if they became too thick, but risk disconnecting
-        # kernel_erode = cv2.getStructuringElement(cv2.MORPH_RECT, (3,3))
-        # eroded_img = cv2.erode(closed_img, kernel_erode, iterations=1)
-        # image_for_canny = eroded_img
         image_for_canny = closed_img
 
-        # cv2.imwrite("debug_morph_processed.png", image_for_canny) # For debugging
-
-        low_canny = 60  # Stricter Canny if morphology is good
+        low_canny = 60 
         high_canny = 180
         edges = cv2.Canny(image_for_canny, low_canny, high_canny, apertureSize=3)
-        # cv2.imwrite("debug_canny_edges.png", edges) # For debugging
 
         lines = cv2.HoughLinesP(
             edges, rho=1, theta=np.pi / 180,
-            threshold=40,      # Number of votes
-            minLineLength=25,  # Min length in pixels
-            maxLineGap=15      # Max gap to join segments
+            threshold=40,      
+            minLineLength=25,  
+            maxLineGap=15      
         )
 
         if lines is None:
@@ -222,7 +209,7 @@ class FloorPlanConverter:
             x1, y1, x2, y2 = line_segment[0]
             length = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
             
-            if length < 15: continue # Filter very short lines again
+            if length < 15: continue 
 
             angle_rad = np.arctan2(y2 - y1, x2 - x1)
             angle_deg = np.degrees(angle_rad)
@@ -259,14 +246,14 @@ class FloorPlanConverter:
         high_threshold_canny = 180
         edges = cv2.Canny(morph_closed, low_threshold_canny, high_threshold_canny)
         
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) # EXTERNAL for outer contours
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE) 
         curved_walls_detected = []
         
         min_contour_length_pixels = 40 
-        min_points_for_curve_approx = 4 # Need at least 4 for a decent curve segment
+        min_points_for_curve_approx = 4 
         
         for contour in contours:
-            length = cv2.arcLength(contour, True) # Closed contour length
+            length = cv2.arcLength(contour, True) 
             if length < min_contour_length_pixels: continue
             
             # Filter out very small area contours that might be noise
@@ -583,7 +570,7 @@ class FloorPlanConverter:
                              y_length=door_panel_thickness, 
                              z_length=height_ft)
         door_panel.rotate_z(math.degrees(angle_rad_wall), inplace=True)
-        door_panel.translate(list(center_pos_2d_ft) + [0], inplace=True) # center_pos_2d_ft is already a tuple/list
+        door_panel.translate(list(center_pos_2d_ft) + [0], inplace=True) 
         self.layer_meshes["Layer_Doors"].append(door_panel)
 
 
